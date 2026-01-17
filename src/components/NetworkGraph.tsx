@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useRef, useEffect, useState } from "react";
 import ForceGraph2D, { ForceGraphMethods } from "react-force-graph-2d";
-import { getNodeColor } from "@/data/infrastructure";
+import { getNodeColor, InfrastructureType } from "@/data/infrastructure";
 
 interface GraphNode {
   id: string;
@@ -18,7 +18,6 @@ interface NetworkGraphProps {
   nodes: GraphNode[];
   edges: GraphEdge[];
   onNodeClick?: (node: GraphNode) => void;
-  
   selectedNodeId?: string | null;
 }
 
@@ -50,28 +49,30 @@ export function NetworkGraph({
     return {
       nodes: nodes.map((n) => ({
         ...n,
-        color: getNodeColor(n.type),
-        val: 6,
+        label: n.name,
+        color: getNodeColor(n.type as InfrastructureType),
+        val: 8,
       })),
-      links: edges,
+      links: edges.map((e) => ({
+        ...e,
+        distance: 150,
+      })),
     };
   }, [nodes, edges]);
 
   const handleNodeClick = useCallback(
-  (node: any) => {
-    const fullNode = nodes.find(n => n.id === node.id);
-    if (!fullNode) return;
+    (node: any) => {
+      const fullNode = nodes.find(n => n.id === node.id);
+      if (!fullNode) return;
 
-    // 🔥 force React state update
-    onNodeClick?.({ ...fullNode });
+      // 🔥 force React state update
+      onNodeClick?.({ ...fullNode });
 
-    graphRef.current?.centerAt(node.x, node.y, 500);
-    graphRef.current?.zoom(2, 500);
-  },
-  [nodes, onNodeClick]
-);
-
-
+      graphRef.current?.centerAt(node.x, node.y, 500);
+      graphRef.current?.zoom(2, 500);
+    },
+    [nodes, onNodeClick]
+  );
 
   const drawNode = useCallback(
     (node: any, ctx: CanvasRenderingContext2D, scale: number) => {
@@ -96,7 +97,7 @@ export function NetworkGraph({
       ctx.textAlign = "center";
       ctx.textBaseline = "top";
       ctx.fillStyle = "#1e293b";
-      ctx.fillText(node.label, node.x, node.y + size + 4);
+      ctx.fillText(node.label || node.name, node.x, node.y + size + 4); // Use label or fallback to name
     },
     [selectedNodeId]
   );
@@ -115,8 +116,14 @@ export function NetworkGraph({
         linkColor={() => "#cbd5e1"}
         linkWidth={1.5}
         linkDirectionalArrowLength={4}
+        linkDirectionalArrowRelPos={1}
         onNodeClick={handleNodeClick}
-        cooldownTicks={80}
+        cooldownTicks={100}
+        d3AlphaDecay={0.02}
+        d3VelocityDecay={0.3}
+        warmupTicks={100}
+        enableZoomInteraction={true}
+        enablePanInteraction={true}
       />
     </div>
   );

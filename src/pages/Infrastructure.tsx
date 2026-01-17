@@ -36,12 +36,14 @@ export default function Infrastructure() {
 
   // 🔗 Load data from backend (Neo4j)
   useEffect(() => {
-    fetchInfrastructure().then((data) => {
-      const graph = buildGraph(data);
-      setNodes(graph.nodes);
-      setEdges(graph.edges);
-    });
-  }, []);
+  fetchInfrastructure().then((data) => {
+    console.log("Raw API data:", data); // Add this line
+    const graph = buildGraph(data);
+    console.log("Built graph:", graph); // Add this line
+    setNodes(graph.nodes);
+    setEdges(graph.edges);
+  });
+}, []);
 
   // 🔍 Compute connections dynamically from edges
   const getConnections = (nodeId: string) => {

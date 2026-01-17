@@ -30,46 +30,69 @@ router.get("/infrastructure", async (req, res) => {
 /**
  * 2️⃣ Failure Analysis
  */
-router.get("/analyze", async (req, res) => {
-  const { failedUnit } = req.query;
+router.get("/analyze-region", async (req, res) => {
+  const { region, locations } = req.query;
   const session = driver.session({ database: "cityinfrastructure" });
 
   try {
-    const rootCause = await session.run(
+    const locationArray = locations.split(',');
+
+    // Find all critical units in this region (high dependency count)
+    const criticalResult = await session.run(
       `
-      MATCH path=(f:InfrastructureUnit {name:$name})-[:DEPENDS_ON*]->(root)
-      RETURN path
+      MATCH (n:InfrastructureUnit)
+      WHERE n.location IN $locations
+      OPTIONAL MATCH (dependent)-[:DEPENDS_ON*]->(n)
+      WITH n, COUNT(DISTINCT dependent) as dependentCount
+      WHERE dependentCount > 0
+      RETURN n, dependentCount
+      ORDER BY dependentCount DESC
+      LIMIT 5
       `,
-      { name: failedUnit }
+      { locations: locationArray }
     );
 
-    const cascade = await session.run(
+    const criticalUnits = criticalResult.records.map(r => ({
+      ...r.get('n').properties,
+      dependentCount: r.get('dependentCount').toNumber()
+    }));
+
+    // Count total units
+    const totalResult = await session.run(
       `
-      MATCH (root:InfrastructureUnit {name:$name})<-[:DEPENDS_ON*]-(affected)
-      RETURN affected
+      MATCH (n:InfrastructureUnit)
+      WHERE n.location IN $locations
+      RETURN COUNT(n) as total
       `,
-      { name: failedUnit }
+      { locations: locationArray }
     );
 
-    const rootPaths = rootCause.records.map(r =>
-      r.get("path").segments.map(s => ({
-        from: s.start.properties.name,
-        to: s.end.properties.name
-      }))
-    );
+    const totalUnits = totalResult.records[0].get('total').toNumber();
 
-    const cascadeNodes = cascade.records.map(r =>
-      r.get("affected").properties
-    );
+    // Generate vulnerabilities
+    const vulnerabilities = [];
+    if (criticalUnits.length > 0) {
+      vulnerabilities.push(`${criticalUnits.length} critical infrastructure units identified`);
+      vulnerabilities.push(`Single point of failure risk in ${criticalUnits[0].name}`);
+    }
+
+    await session.close();
 
     res.json({
-      rootCause: rootPaths,
-      cascade: cascadeNodes
+      region,
+      criticalUnits,
+      vulnerabilities,
+      totalUnits
     });
-  } finally {
+
+  } catch (error) {
     await session.close();
+    console.error('Region analysis error:', error);
+    res.status(500).json({ error: 'Analysis failed', details: error.message });
   }
 });
+
+
 
 /**
  * 3️⃣ Critical Infrastructure

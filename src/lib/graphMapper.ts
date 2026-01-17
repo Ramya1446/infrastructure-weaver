@@ -1,7 +1,10 @@
 export interface GraphNode {
   id: string;
-  label: string;
+  name: string;
   type: string;
+  location: string;
+  department: string;
+  status: string;
 }
 
 export interface GraphEdge {
@@ -18,28 +21,40 @@ export function buildGraph(apiData: any[]) {
     const from = item.from;
     const to = item.to;
 
+    // Add 'from' node with all properties
     if (!nodeMap.has(from.id)) {
       nodeMap.set(from.id, {
         id: from.id,
-        label: from.name,
-        type: from.type
+        name: from.name || 'Unknown',
+        type: from.type || 'unknown',
+        location: from.location || 'Unknown',
+        department: from.department || 'Unknown',
+        status: from.status || 'operational'
       });
     }
 
+    // Add 'to' node with all properties
     if (!nodeMap.has(to.id)) {
       nodeMap.set(to.id, {
         id: to.id,
-        label: to.name,
-        type: to.type
+        name: to.name || 'Unknown',
+        type: to.type || 'unknown',
+        location: to.location || 'Unknown',
+        department: to.department || 'Unknown',
+        status: to.status || 'operational'
       });
     }
 
+    // Create edge
     edges.push({
       source: from.id,
       target: to.id,
       label: item.relationship
     });
   });
+
+  console.log('Built nodes:', Array.from(nodeMap.values()));
+  console.log('Built edges:', edges);
 
   return {
     nodes: Array.from(nodeMap.values()),
